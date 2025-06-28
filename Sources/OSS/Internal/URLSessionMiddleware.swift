@@ -1,5 +1,7 @@
 import Foundation
 import AsyncHTTPClient
+import NIOFoundationCompat
+import NIOCore
 
 #if canImport(FoundationNetworking)
     import FoundationNetworking
@@ -177,8 +179,9 @@ extension URLSessionMiddleware {
                 _request.headers.add(name: key, value: value)
             }
         }
-        if let body = request.httpBody {
-            _request.body = .bytes(.init(data: body))
+        if let body: Data = request.httpBody {
+            let byteBuffer: ByteBuffer = ByteBuffer(data: body)
+            _request.body = HTTPClientRequest.Body.bytes(byteBuffer)
         }
         let response = try await HTTPClient.shared.execute(_request, timeout: .seconds(60))
         
@@ -195,7 +198,7 @@ extension URLSessionMiddleware {
                 let major = response.version.major
                 let minor = response.version.minor
                 let httpVersion = "\(major).\(minor)"
-                var response = HTTPURLResponse(
+                let response = HTTPURLResponse(
                     url: url,
                     statusCode: Int(response.status.code),
                     httpVersion: httpVersion,
