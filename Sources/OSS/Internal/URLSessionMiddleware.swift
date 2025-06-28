@@ -1,4 +1,6 @@
 import Foundation
+import AsyncHTTPClient
+
 #if canImport(FoundationNetworking)
     import FoundationNetworking
 #endif
@@ -121,9 +123,13 @@ class URLSessionMiddleware: ExecuteMiddleware {
 
                 } else {
                     if #available(macOS 12.0, iOS 15.0, watchOS 8.0, tvOS 15.0, *) {
-                        (respData, urlResponse) = try await self._session.data(for: urlRequest, delegate: delegate)
+                        (respData, urlResponse) = try await dataForAsyncHTTPClient(for: urlRequest)
+                        /// linux 不支持
+//                        (respData, urlResponse) = try await self._session.data(for: urlRequest, delegate: delegate)
                     } else {
-                        (respData, urlResponse) = try await _session.data(for: urlRequest)
+                        (respData, urlResponse) = try await dataForAsyncHTTPClient(for: urlRequest)
+                        /// linux 不支持
+//                        (respData, urlResponse) = try await _session.data(for: urlRequest)
                     }
                     body = .data(respData)
                 }
@@ -153,5 +159,57 @@ class URLSessionMiddleware: ExecuteMiddleware {
         )
         logger?.debug(response.description)
         return response
+    }
+}
+
+extension URLSessionMiddleware {
+    
+    func dataForAsyncHTTPClient(for request: URLRequest) async throws -> (Data, URLResponse) {
+        guard let url = request.url?.absoluteString else {
+            throw ClientError.requestError(detail: "Invalid URL in request")
+        }
+        var _request = HTTPClientRequest(url: url)
+        if let method = request.httpMethod {
+            _request.method = .init(rawValue: method)
+        }
+        if let headers = request.allHTTPHeaderFields {
+            for (key, value) in headers {
+                _request.headers.add(name: key, value: value)
+            }
+        }
+        if let body = request.httpBody {
+            _request.body = .bytes(.init(data: body))
+        }
+        let response = try await HTTPClient.shared.execute(_request, timeout: .seconds(60))
+        
+        if response.status == .ok {
+            let body = try await response.body.collect(upTo: 1024 * 1024)
+            let data = Data(buffer: body)
+            if let url = response.url {
+                var headerFields: [String: String] = [:]
+                if let headers = request.allHTTPHeaderFields {
+                    for (key, value) in headers {
+                        headerFields[key] = value
+                    }
+                }
+                let major = response.version.major
+                let minor = response.version.minor
+                let httpVersion = "\(major).\(minor)"
+                var response = HTTPURLResponse(
+                    url: url,
+                    statusCode: Int(response.status.code),
+                    httpVersion: httpVersion,
+                    headerFields: headerFields
+                )!
+                return (data, response)
+            } else {
+                throw ClientError.responseError(detail: "Invalid URL in HTTPClientResponse")
+            }
+        } else {
+            throw ClientError.responseError(
+                detail: "HTTP request failed with status \(response.status)",
+                innerError: nil
+            )
+        }
     }
 }

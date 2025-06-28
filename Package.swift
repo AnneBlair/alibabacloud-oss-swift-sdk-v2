@@ -22,7 +22,8 @@ let package = Package(
     dependencies: [
          .package(url: "https://github.com/apple/swift-atomics.git", from: "1.1.0"),
          .package(url: "https://github.com/apple/swift-crypto.git", "1.0.0"..<"4.0.0"),
-         .package(url: "https://github.com/CoreOffice/XMLCoder.git", from: "0.17.1")
+         .package(url: "https://github.com/CoreOffice/XMLCoder.git", from: "0.17.1"),
+         .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.24.0"),
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -30,7 +31,8 @@ let package = Package(
         .target(
             name: "AlibabaCloudOSS",
             dependencies: [
-                .product(name: "Crypto", package: "swift-crypto")
+                .product(name: "Crypto", package: "swift-crypto"),
+                .product(name: "AsyncHTTPClient", package: "async-http-client"),
             ],
             path: "Sources/OSS",
             resources: [.process("Resource")],
@@ -40,7 +42,7 @@ let package = Package(
             name: "AlibabaCloudOSSExtension",
             dependencies: [
                 "AlibabaCloudOSS",
-                .product(name: "XMLCoder", package: "XMLCoder")
+                .product(name: "XMLCoder", package: "XMLCoder"),
             ],
             path: "Sources/OSSExtension",
             swiftSettings: swiftSettings
