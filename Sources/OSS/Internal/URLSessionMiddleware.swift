@@ -190,10 +190,8 @@ extension URLSessionMiddleware {
             let data = Data(buffer: body)
             if let url = response.url {
                 var headerFields: [String: String] = [:]
-                if let headers = request.allHTTPHeaderFields {
-                    for (key, value) in headers {
-                        headerFields[key] = value
-                    }
+                for (key, value) in response.headers {
+                    headerFields[key] = value
                 }
                 let major = response.version.major
                 let minor = response.version.minor
